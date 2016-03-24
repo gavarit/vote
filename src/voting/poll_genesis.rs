@@ -126,15 +126,15 @@ impl PollRound {
 		} else {
 			print!("ineligible address attempting to make a poll, you need some coins first");
 			PollRound {
-			start_blockheight: 0,
-			end_blockheight: 0,
-			the_terms: String::new(),
-			responses: Vec::new(),
-			sp_number: 0,
-			poll_hash: Vec::new(),
-			origin_pubkey: String::new(),
-			origin_signature: Vec::new(),
-			eligible_addresses: OmniList::new(),
+				start_blockheight: 0,
+				end_blockheight: 0,
+				the_terms: String::new(),
+				responses: Vec::new(),
+				sp_number: 0,
+				poll_hash: Vec::new(),
+				origin_pubkey: String::new(),
+				origin_signature: Vec::new(),
+				eligible_addresses: OmniList::new(),
 			}
 		}
 	}
@@ -142,6 +142,22 @@ impl PollRound {
 	pub fn return_jsonstring(&self) -> String {
     	let encoded = json::encode(&self).unwrap();
     	encoded
+	}
+
+	pub fn poll_fromjson(json: String) -> PollRound {
+		let poll_data: PollRound = json::decode(&json).unwrap();
+		poll_data
+	}
+
+	pub fn return_pollhash(&self) -> &[u8] {
+		&self.poll_hash[..]
+	}
+
+	pub fn return_pollchoices(&self) -> &[String] {
+		&self.responses
+	}
+	pub fn write_poll(&self) {
+
 	}
 }
 
