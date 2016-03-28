@@ -25,6 +25,8 @@ pub struct OmniList {
 
 impl OmniList {
 
+
+
     pub fn new() -> OmniList {
         OmniList {
             address_list: Vec::new(),
@@ -46,7 +48,28 @@ impl OmniList {
         &self.address_list
     }
 
+    ///return OmniList object as json
+    pub fn return_json(&self) -> String {
+        let encoded = json::encode(&self).unwrap();
+        encoded
+    }
 
+    ///returns a PollRound struct based on a json encoded string
+    pub fn omnilist_fromjson(json: String) -> OmniList {
+        let omni_data: OmniList = json::decode(&json).unwrap();
+        omni_data
+    }
+
+    ///returns the balance of an address from the list
+    pub fn return_balance(&self, add: String) -> i32 {
+        let mut int = 0;
+        for data in &self.address_list {
+            if add == data.address {
+                int += data.balance
+            }
+        }
+        int
+    }
 }
 
 pub fn get_omniwalletorg(spindex: i32) -> OmniList {

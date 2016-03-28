@@ -5,8 +5,10 @@
 
 use safex::genesis::key_generation::KeyPair;
 use utils::get_address_methods::OmniList;
+use utils::dirs::{make_app_root_dir, touch};
 
 use voting::poll_genesis::PollRound;
+use voting::validate_genesis::VotingOutcome;
 
 use rustc_serialize::{Decodable, Decoder};
 use rustc_serialize::json::{self, ToJson, Json};
@@ -56,10 +58,10 @@ impl VotePersona {
 
 #[derive(Clone, RustcDecodable, RustcEncodable)]
 pub struct VoteHash {
-	poll_hash: Vec<u8>,
-	vote_message: String,
-	vote_msgindex: i32,
-	vote_publickey: String,
+	pub poll_hash: Vec<u8>,
+	pub vote_message: String,
+	pub vote_msgindex: i32,
+	pub vote_publickey: String,
 }
 
 impl VoteHash {
@@ -73,12 +75,12 @@ impl VoteHash {
 
 #[derive(RustcDecodable, RustcEncodable)]
 pub struct VoteRound {
-	poll_hash: Vec<u8>,
-	vote_hash: Vec<u8>,
-	vote_message: String,
-	vote_msgindex: i32,
-	vote_signature: Vec<u8>,
-	vote_publickey: String,
+	pub poll_hash: Vec<u8>,
+	pub vote_hash: Vec<u8>,
+	pub vote_message: String,
+	pub vote_msgindex: i32,
+	pub vote_signature: Vec<u8>,
+	pub vote_publickey: String,
 }
 
 
@@ -93,6 +95,8 @@ impl VoteRound {
 			vote_publickey: String::new(),
 		}
 	}
+
+	///form a vote taking a poll json string, and a VotePersona
 	pub fn from_poll(poll_round: String, persona: VotePersona) -> VoteRound {
 		//get the poll's hash
 		//need to validate the poll contents as well
@@ -144,7 +148,7 @@ impl VoteRound {
 
 	}
 
-	
+	///forms a vote using a VotePersona import keys
 	pub fn form_vote() {
 		let persona = VotePersona::import_keys();
 
@@ -176,6 +180,7 @@ impl VoteRound {
 
 		let addresses = the_poll.return_eligibleaddresses();
 		if addresses.check_existence(key_hash160) == true {
+
     		let vote = VoteRound::from_poll(the_poll.return_jsonstring(), persona);
 
     		vote.write_vote();
@@ -185,7 +190,7 @@ impl VoteRound {
 
 	}
 
-
+	///helper function to accept answers from a poll through commandline by index
 	pub fn select_answer(poll_choices: &[String]) -> i32 {
 		println!("choices are: ");
 		let mut index = 0;
@@ -203,7 +208,9 @@ impl VoteRound {
     	the_index
 	}
 
+	///writes the vote to a file
 	pub fn write_vote(&self) {
+
 		let mut the_home_dir = String::new();
 		let home_dirclone = the_home_dir.clone();
     	match env::home_dir() {
@@ -221,13 +228,13 @@ impl VoteRound {
     	let path_string = String::from("/make_votes/");
 
     	let app_root = home_dirclone + "/make_votes/";
-    	make_app_root_dir(&app_root);
+    	make_app_root_dir(app_root);
 
     	let path_string2 = path_string + &hash_path;
     	let path_string3 = path_string2 + ".vote";
     	let path_string4 = the_home_dir + &path_string3;
     	let path = Path::new(&path_string4); 
-    	println!("{:?}", path);;
+    	println!("{:?}", path);
 		touch(&path).unwrap_or_else(|why| {
                println!("! {:?}", why.kind());
     	}); 
@@ -246,42 +253,72 @@ impl VoteRound {
 
 	}
 
-	pub fn return_votehash(&self) -> &[u8] {
-		&self.vote_hash[..]
-	}
-
+	///returns a json encoded string from the VoteRound struct
 	pub fn return_jsonstring(&self) -> String {
     	let encoded = json::encode(&self).unwrap();
     	encoded
 	}
+
+	///returns a VoteRound struct based on a json encoded string
+	pub fn vote_fromjson(json: String) -> VoteRound {
+		let vote_data: VoteRound = json::decode(&json).unwrap();
+		vote_data
+	}
+
+	///returns the vote hash from the VoteRound struct
+	pub fn return_votehash(&self) -> &[u8] {
+		&self.vote_hash[..]
+	}
+
+	///returns the poll hash from the VoteRound struct
+	pub fn return_pollhash(&self) -> &[u8] {
+		&self.poll_hash[..]
+	}
+
+	///returns the signature from the VoteRound struct
+	pub fn return_signature(&self) -> &[u8] {
+		&self.vote_signature
+	}
+
+	///returns the string of the vote answer from the poll
+	pub fn return_votemsg(&self) -> String {
+		let our_string = self.vote_message.to_string();
+		our_string
+	}
 	
-}
-
-pub fn touch(path: &Path) -> io::Result<()> {
-    match OpenOptions::new().write(true).read(true).create(true).open(path) {
-        Ok(_) => { 
-        	println!("making {:?}", path);
-        	Ok(()) },
-        Err(e) => Err(e),
-    }
-}
-
-pub fn make_app_root_dir(rootname: &str) {
-	let mut the_home_dir = String::new();
-
-	match env::home_dir() {
-   		Some(ref p) => the_home_dir = p.display().to_string(),
-   		None => println!("Impossible to get your home dir!")
+	///returns the index of the vote as per the poll
+	pub fn return_voteindex(&self) -> i32 {
+		let mut int = 0;
+		int += self.vote_msgindex;
+		int
 	}
 
-	let the_other_part = rootname;
-	let the_full_path = the_home_dir + the_other_part;
-	match fs::create_dir(&the_full_path) {
-		Err(why) => { 
-			println!("{:?}", why.kind()); 
-		},
-		Ok(_) => { 	
-			println!("making application directory"); 
-		},
+	///returns the index of the vote as per the poll
+	pub fn return_votecount(&self, list: &OmniList) -> i32 {
+		list.return_balance(self.vote_publickey.to_string())
+
 	}
-}  
+
+	///returns a VoteRound from a file path
+	pub fn return_votefromfile(path: &Path) -> VoteRound {
+		let display = "a";
+   		let mut file = match OpenOptions::new().read(true).write(false).open(path) {
+            // The `description` method of `io::Error` returns a string that
+            // describes the error
+        	Err(why) => panic!("couldn't open {}: {}", display, Error::description(&why)),
+        	Ok(file) => file,
+    	};
+
+    	let mut file_string = String::new();
+    	match file.read_to_string(&mut file_string) {
+    		Err(why) => panic!("couldn't read {}: {}", display, Error::description(&why)),
+    		Ok(_) => println!("ok"),
+    	}
+
+    	let the_vote: VoteRound = json::decode(&file_string).unwrap();
+    	the_vote
+	}
+}
+
+
+
